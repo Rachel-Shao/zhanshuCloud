@@ -1,27 +1,22 @@
 package main
 
-
 import (
 	"bufio"
 	"errors"
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"log"
 	"net"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
-	"time"
-
-	"k8s.io/apimachinery/pkg/util/wait"
-
 	"../common"
+	"time"
 )
 
-var (
-	CurrentMasterIP string
-	CurrentHostIP string
-)
+var hostIp = ""
+var hostMasterIp = ""
 
 // TCP Server端测试
 // 处理函数
@@ -41,19 +36,29 @@ func process(conn net.Conn) {
 
 		if recvArray[0] == "AddCluster"{
 			//update local ip info
+			var masterIp, signal string
+			var location []string
+			for j:=1; j<len(recvArray); j++{
+				if recvArray[j] == "master"{
+					masterIp = recvArray[j+1]
+				}else if recvArray[j] == "Location"{
+					location = strings.Split(recvArray[j+1], ",")
+				}else if recvArray[j] == "Signal"{
+					signal = recvArray[j+1]
+				}
+			}
 			isExisted := false
 			clusters := common.GetClusterInfo()
 			for _, cluster := range(clusters["Clusters"]) {
 				if cluster.Master == recvArray[2]{
-					conn.Write([]byte("The Cluster:"+recvArray[2]+" has existed.")) // 发送数据
+					conn.Write([]byte("The Cluster:" + masterIp + " has existed.")) // 发送数据
 					isExisted=true
 					break
 				}
 			}
 			if !isExisted{
-				loc:= strings.Split(recvArray[4], ",")
-				new_cluster := common.Cluster{recvArray[2], []string{},loc, recvArray[6]}
-				clusters["Clusters"] = append(clusters["Clusters"], new_cluster)
+				newCluster := common.Cluster{Master: masterIp, Nodes: []string{}, Location: location, Signal: signal}
+				clusters["Clusters"] = append(clusters["Clusters"], newCluster)
 			} else{
 				continue
 			}
@@ -138,7 +143,7 @@ func getBestCluster(info map[string][]common.Cluster) *common.Cluster {
 	bestCluster := common.Cluster{}
 	for _, cluster := range info["Clusters"] {
 		sg, _ := strconv.Atoi(cluster.Signal)
-		if CurrentMasterIP != cluster.Master && common.IsConnect(cluster.Master) && sg > maxSignal {
+		if hostMasterIp != cluster.Master && common.IsConnect(cluster.Master) && sg > maxSignal {
 			maxSignal = sg
 			bestCluster = cluster
 		}
@@ -195,7 +200,7 @@ func reJoin(cluster *common.Cluster) error {
 
 func sendUpdateInfo(info map[string][]common.Cluster, newCluster common.Cluster) error {
 	for _, cluster := range info["Clusters"] {
-		if cluster.Master == CurrentMasterIP {
+		if cluster.Master == hostMasterIp {
 			// update master info
 			nodeStr := strings.Join(newCluster.Nodes, ",")
 			str := "UpdateCluster master " + newCluster.Master + " nodes " + nodeStr
@@ -215,21 +220,21 @@ func sendUpdateInfo(info map[string][]common.Cluster, newCluster common.Cluster)
 }
 
 func statusCheck() {
-	if CurrentMasterIP == "" {
+	if hostMasterIp == "" {
 		log.Printf("failed to get masterIP, waiting to join the cluster")
 		return
 	}
 	// Check the connection status between cloud and edge
 	// ping master
-	isMasterConnect := common.IsConnect(CurrentMasterIP)
+	isMasterConnect := common.IsConnect(hostMasterIp)
 
 	// ping node
-	nodeIp := common.GetNodeIp(CurrentMasterIP)
+	nodeIp := common.GetNodeIp(hostMasterIp)
 	if nodeIp == nil {
 		log.Printf("failed to get nodeIP")
 		return
 	}
-	isNodeConnect := common.GetNodeConnection(nodeIp, CurrentHostIP)
+	isNodeConnect := common.GetNodeConnection(nodeIp, hostIp)
 
 	// If there is no stable connection, edgeNode will automatically switch clusters
 	if isMasterConnect == false && isNodeConnect == false {
@@ -246,10 +251,10 @@ func statusCheck() {
 		clusterInfo := common.GetClusterInfo()
 		var newCluster common.Cluster
 		for _, cluster := range clusterInfo["Clusters"] {
-			if cluster.Master == CurrentMasterIP {
+			if cluster.Master == hostMasterIp {
 				var newNodes []string
 				for _, node := range cluster.Nodes {
-					if node != CurrentHostIP {
+					if node != hostIp {
 						newNodes = append(newNodes, node)
 					}
 				}
@@ -278,7 +283,7 @@ func statusCheck() {
 			}
 			err = reJoin(bestCluster)
 		}
-		CurrentMasterIP = bestCluster.Master
+		hostMasterIp = bestCluster.Master
 		// wait to update info
 	}
 }
@@ -296,15 +301,14 @@ func main() {
 		}
 	}
 
-	// init
-	CurrentHostIP, err = common.GetHostIp()
-	if err != nil {
+	hostIp, err = common.GetHostIp()
+	if err != nil{
 		log.Println("get host ip err: ", err)
-		return
 	}
-	CurrentMasterIP = common.GetMasterIp(CurrentHostIP)
+
 	// 异常检测
 	go wait.Until(func() {
+		hostMasterIp = common.GetMasterIp(hostIp)
 		statusCheck()
 	}, time.Minute*5, nil)
 

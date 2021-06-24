@@ -3,11 +3,11 @@ package common
 import (
 	"errors"
 	"fmt"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
 	"net"
 	"os"
+	"gopkg.in/yaml.v2"
 	"os/exec"
 	"strings"
 )
@@ -64,22 +64,6 @@ func GetHostIp() (string, error){
 	return "", errors.New("Can not find host ip address!")
 }
 
-
-func GetMasterIp(ip string) string {
-	clusterInfo := GetClusterInfo()
-	for _, c := range clusterInfo["Clusters"] {
-		if c.Master == ip {
-			return ip
-		}
-		for _, nodeIp := range c.Nodes {
-			if nodeIp == ip {
-				return c.Master
-			}
-		}
-	}
-	return ""
-}
-
 func GetClusterInfo() map[string] []Cluster{
 	info := make(map[string] []Cluster)
 	recordFile, err := ioutil.ReadFile(ClusterConfPath)
@@ -103,6 +87,21 @@ func SetClusterInfo(clusterInfo map[string] []Cluster) error{
 		log.Println(err)
 	}
 	return err
+}
+
+func GetMasterIp(ip string) string {
+	clusterInfo := GetClusterInfo()
+	for _, cluster := range clusterInfo["Clusters"] {
+		if cluster.Master == ip {
+			return ip
+		}
+		for _, nodeIp := range cluster.Nodes {
+			if nodeIp == ip {
+				return cluster.Master
+			}
+		}
+	}
+	return ""
 }
 
 
