@@ -1,10 +1,10 @@
 package main
 
 import (
+	"../common"
 	"bufio"
-	"errors"
 	"fmt"
-	"io/ioutil"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"log"
 	"net"
 	"os"
@@ -12,120 +12,24 @@ import (
 	"regexp"
 	"strings"
 	"time"
-
-	"gopkg.in/yaml.v2"
 )
 
-const ClusterConfPath string = "/etc/cluster/conf.yaml"
 
-type Cluster struct{
-	Master string `yaml:"Master"`
-	Nodes []string `yaml:"Nodes"`
-	Location []string `yaml:"Location"`
-	Signal string `yaml:"Signal"`
-}
-
-func joinRequest(targetIp string) string{
-	conn, err := net.DialTimeout("tcp", targetIp+":9999", 15 * time.Second)
-	if err != nil {
-		log.Println("err:", err)
-		return "Failed " + err.Error()
-	}
-	defer conn.Close() // 关闭TCP连接
-
-	_, err = conn.Write([]byte("JoinRequest Cloud")) // 发送数据
-	if err != nil {
-		return "Failed " + err.Error()
-	}
-	buf := make([]byte, 4096)
-	cnt, err := conn.Read(buf)
-	if err != nil {
-		log.Println("recv failed, err:", err)
-		return "Failed " + err.Error()
-	}
-	log.Println(string(buf[:cnt]))
-	recvStr := string(buf[:cnt])
-	return  recvStr
-}
-
-func sendCommand(targetIp string, cmd string) string{
-	conn, err := net.Dial("tcp", targetIp+":9999")
-	if err != nil {
-		log.Println("err : ", err)
-		return "connect err: "+ err.Error()
-	}
-	defer conn.Close() // 关闭TCP连接
-
-	_, err = conn.Write([]byte(cmd)) // 发送数据
-	if err != nil {
-		return "send err: " + err.Error()
-	}
-	buf := make([]byte, 4096)
-	cnt, err := conn.Read(buf)
-	if err != nil {
-		log.Println("recv failed, err:", err)
-		return "read err: "+ err.Error()
-	}
-	log.Println(string(buf[:cnt]))
-	return string(buf[:cnt])
-}
-
-func getHostIp() (string, error){
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		return "", err
-	}
-	for _, address := range addrs {
-		// 检查ip地址判断是否回环地址
-		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-			if ipnet.IP.To4() != nil {
-				return ipnet.IP.String(), nil
-			}
-		}
-	}
-	return "", errors.New("Can not find host ip address!")
-}
-
-
-func getClusterInfo() map[string] []Cluster{
-	info := make(map[string] []Cluster)
-	recordFile, err := ioutil.ReadFile(ClusterConfPath)
-	if err != nil {
-		log.Println("Read cluster info failed")
-		return nil
-	}
-	err = yaml.Unmarshal(recordFile, info)
-	if err != nil {
-		log.Println("Unmarshal: %v", err)
-		return nil
-	}
-	return info
-}
-
-func setClusterInfo(clusterInfo map[string] []Cluster) error{
-	data, err := yaml.Marshal(clusterInfo)	// 第二个表示每行的前缀，这里不用，第三个是缩进符号，这里用tab
-	if err != nil{
-		log.Println(err)
-		return err
-	}
-	err = ioutil.WriteFile(ClusterConfPath, data, os.ModePerm)
-	if err != nil{
-		log.Println(err)
-		return err
-	}
-	return nil
-}
+var (
+	CurrentMasterIP string
+	CurrentHostIP string
+)
 
 // TCP Server端测试
 // 处理函数
 func process(conn net.Conn) {
 	isMaster := false
 	// check whether current node is master
-	hostIp,err := getHostIp()
+	hostIp,err := common.GetHostIp()
 	if err != nil{
 		log.Println("get host ip err: ", err)
 	}else{
-		clusterInfo := getClusterInfo()
+		clusterInfo := common.GetClusterInfo()
 		for _, cluster := range clusterInfo["Clusters"] {
 			if hostIp == cluster.Master{
 				isMaster = true
@@ -150,7 +54,7 @@ func process(conn net.Conn) {
 		if recvArray[0] == "AddCluster"{
 			//update local ip info
 			isExisted := false
-			clusters := getClusterInfo()
+			clusters := common.GetClusterInfo()
 			for _, cluster := range(clusters["Clusters"]) {
 				if cluster.Master == recvArray[2]{
 					conn.Write([]byte("The Cluster: "+recvArray[2]+"has existed.")) // 发送数据
@@ -160,13 +64,13 @@ func process(conn net.Conn) {
 			}
 			if !isExisted{
 				loc:= strings.Split(recvArray[4], ",")
-				new_cluster := Cluster{recvArray[2], []string{},loc, recvArray[6]}
+				new_cluster := common.Cluster{recvArray[2], []string{},loc, recvArray[6]}
 				clusters["Clusters"] = append(clusters["Clusters"], new_cluster)
 			} else{
 				continue
 			}
 
-			setErr := setClusterInfo(clusters)
+			setErr := common.SetClusterInfo(clusters)
 			if setErr != nil {
 				log.Println(setErr)
 				continue
@@ -183,7 +87,7 @@ func process(conn net.Conn) {
 					for _,ip := range ipArray{
 						if ip != "INTERNAL-IP"{
 							//send info to node
-							cmdStr := sendCommand(ip, recvStr)
+							cmdStr := common.SendInfo(ip, recvStr)
 							if cmdStr != "Add Cluster Success" {
 								log.Printf("send command:%v to %v error:%v", recvStr, ip, cmdStr)
 							}
@@ -193,14 +97,14 @@ func process(conn net.Conn) {
 			}
 		}else if recvArray[0] == "DeleteCluster"{
 			//delete local ip info
-			clusters := getClusterInfo()
+			clusters := common.GetClusterInfo()
 			for i, cluster := range(clusters["Clusters"]) {
 				if cluster.Master == recvArray[1]{
 					clusters["Clusters"] = append(clusters["Clusters"][:i], clusters["Clusters"][i+1:]...)
 					break
 				}
 			}
-			setErr := setClusterInfo(clusters)
+			setErr := common.SetClusterInfo(clusters)
 			if setErr != nil{
 				log.Println(setErr)
 				continue
@@ -216,7 +120,7 @@ func process(conn net.Conn) {
 					for _,ip := range ipArray{
 						if ip != "INTERNAL-IP"{
 							//send info to node
-							cmdStr := sendCommand(ip, recvStr)
+							cmdStr := common.SendInfo(ip, recvStr)
 							if cmdStr != "Delete Cluster Success" {
 								log.Printf("send command:%v to %v error:%v", recvStr, ip, cmdStr)
 							}
@@ -236,15 +140,22 @@ func process(conn net.Conn) {
 					for _,ip := range ipArray {
 						if ip != "INTERNAL-IP" {
 							//send info to node
-							cmdStr := sendCommand(ip, recvStr)
+							cmdStr := common.SendInfo(ip, recvStr)
 							if cmdStr != "Start Joining Cluster" {
 								log.Printf("send command:%v to %v error:%v", recvStr, ip, cmdStr)
 							}
 						}
 					}
 				}
+				fmt.Println("Executing Cmd: keadm reset --force")
+				cmd = exec.Command("sh", "-c", `keadm reset --force`)
+				cmdOutput, cmdErr := cmd.Output()
+				fmt.Println(string(cmdOutput))
+				if cmdErr != nil {
+					log.Println(cmdErr)
+				}
 			}
-			requestStr := joinRequest(recvArray[1])
+			requestStr := common.SendInfo(recvArray[1], "JoinRequest Cloud")
 			strArray := strings.Fields(requestStr)
 			if strArray[0] == "Failed" {
 				conn.Write([]byte("Request Joining Cluster:" + recvArray[1] + " Error:" + requestStr)) // 发送数据
@@ -257,15 +168,15 @@ func process(conn net.Conn) {
 				fmt.Println("Executing Cmd: kubeadm reset -f")
 				cmd := exec.Command("sh", "-c", `kubeadm reset -f`)
 				cmdOutput, cmdErr := cmd.Output()
-				if cmdErr !=nil {
+				fmt.Println(string(cmdOutput))
+				if cmdErr != nil {
 					log.Println(cmdErr)
 					continue
 				}
-				fmt.Println(string(cmdOutput))
 				fmt.Println("Executing Cmd: " + joinCmd)
 				cmd = exec.Command("sh", "-c", joinCmd)
 				cmdOutput, cmdErr = cmd.Output()
-				if  cmdErr !=nil {
+				if  cmdErr != nil {
 					log.Println(cmdErr)
 					continue
 				}
@@ -292,7 +203,7 @@ func process(conn net.Conn) {
 				}
 			}
 		}else if recvArray[0] == "UpdateCluster"{ //更新集群信息
-			clusters := getClusterInfo()
+			clusters := common.GetClusterInfo()
 			for i, cluster := range(clusters["Clusters"]) {
 				if cluster.Master == recvArray[2]{
 					for j:=3; j<len(recvArray); j++{
@@ -308,7 +219,7 @@ func process(conn net.Conn) {
 					}
 				}
 			}
-			setErr := setClusterInfo(clusters)
+			setErr := common.SetClusterInfo(clusters)
 			if setErr != nil{
 				log.Println(setErr)
 			}
@@ -316,20 +227,181 @@ func process(conn net.Conn) {
 	}
 }
 
+func sendApplication() bool {
+	fmt.Printf("Node %v apply to become a new master, need to confirm [y/N]:\n", CurrentHostIP)
+	var s string
+	if _, err := fmt.Scan(&s);err != nil {
+		log.Println(err)
+	}
+	s = strings.ToLower(strings.TrimSpace(s))
+	if s == "y" {
+		return true
+	}else{
+		return false
+	}
+}
+
+func sendDeleteAndJoinInfo(info map[string][]common.Cluster) error {
+	var str string
+	for _, cluster := range info["Clusters"] {
+		if cluster.Master == CurrentMasterIP { // current cluster
+			for _, node := range cluster.Nodes {
+				if node == CurrentHostIP {
+					continue
+				}
+				str = "DeleteCluster master " + CurrentMasterIP
+				resp := common.SendInfo(node, str)
+				log.Println(resp)
+
+				// send join request
+				str = "JoinCluster master" + CurrentHostIP
+				resp = common.SendInfo(node, str)
+				log.Println(resp)
+			}
+		}else{ // other cluster masters
+			str = "DeleteCluster master " + CurrentMasterIP
+			resp := common.SendInfo(cluster.Master, str)
+			log.Println(resp)
+		}
+	}
+	return nil
+}
+
+func sendAddInfo(info map[string][]common.Cluster, oldMaster string) error {
+	var loc []string
+	var sig string
+	for _, cluster := range info["Clusters"] {
+		if cluster.Master == oldMaster {
+			loc = cluster.Location
+			sig = cluster.Signal
+			break
+		}
+	}
+
+	locStr := strings.Join(loc, ",")
+	str := "AddCluster master " + CurrentHostIP + "location " + locStr + " signal " + sig
+	for _, cluster := range info["Clusters"] {
+		resp := common.SendInfo(cluster.Master, str)
+		log.Println(resp)
+	}
+	return nil
+}
+
+
+func masterStatusCheck() {
+	// try to ping cluster nodes
+	if CurrentMasterIP == "" {
+		log.Printf("failed to get masterIP, waiting to join the cluster")
+		return
+	}
+	nodeIp := common.GetNodeIp(CurrentMasterIP)
+	if nodeIp == nil {
+		log.Printf("failed to get nodeIP")
+		return
+	}
+	isNodeConnect := common.GetNodeConnection(nodeIp, CurrentHostIP)
+	if isNodeConnect == false {
+		// error notification
+		log.Printf("Master %s is suspected to be faulty, please verify manually\n", CurrentHostIP)
+		// let edgenode wait
+		// no need to update cluster information
+	}
+}
+
+func workerStatusCheck() {
+	// try to ping master and cluster nodes
+	// ping master
+	if CurrentMasterIP == "" {
+		log.Printf("failed to get masterIP, waiting to join the cluster")
+		return
+	}
+	isMasterConnect := common.IsConnect(CurrentMasterIP)
+
+	// ping cluster nodes
+	nodeIp := common.GetNodeIp(CurrentHostIP)
+	if nodeIp == nil {
+		log.Printf("failed to get nodeIP")
+		return
+	}
+	isNodeConnect := common.GetNodeConnection(nodeIp, CurrentHostIP)
+
+	if isMasterConnect == false && isNodeConnect == false { // cloudnode failed
+		log.Printf("Node %s is suspected to be faulty, please verify manually\n", CurrentHostIP)
+		// no need to update cluster info
+	}else if isMasterConnect == false && isNodeConnect == true { // master failed
+		log.Printf("Suspected master %s failure, request manual verification, node %s apply to become a new master\n", CurrentMasterIP, CurrentHostIP)
+		// send application
+		reply := sendApplication()
+		if reply == true {
+			// kubeadm reset
+			fmt.Println("Executing Cmd: kubeadm reset -f")
+			cmd := exec.Command("sh", "-c", `kubeadm reset -f`)
+			cmdOutput, cmdErr := cmd.Output()
+			if cmdErr !=nil {
+				log.Println(cmdErr)
+				return
+			}
+			fmt.Println(string(cmdOutput))
+			// kubeadm init
+			fmt.Println("Executing Cmd: kubeadm init")
+			cmd = exec.Command("sh", "-c", "sh /etc/cluster/init_master.sh")
+			cmdOutput, cmdErr = cmd.Output()
+			if  cmdErr !=nil {
+				log.Println(cmdErr)
+				return
+			}
+			fmt.Println(string(cmdOutput))
+
+			// update cluster information
+			// send delete cluster info
+			clusterInfo := common.GetClusterInfo()
+			if err := sendDeleteAndJoinInfo(clusterInfo); err != nil {
+				log.Printf("send DeleteAndJoinCluster info failed: %v\n", err)
+			}
+			oldMasterIp := CurrentMasterIP
+			CurrentMasterIP = CurrentHostIP
+			// send add cluster info
+			clusterInfo = common.GetClusterInfo()
+			if err := sendAddInfo(clusterInfo, oldMasterIp); err != nil {
+				log.Printf("send AddCluster info failed: %v\n", err)
+			}
+			return
+		} // if "no" then wait
+	}else {
+		// node is normal
+		return
+	}
+}
+
 func main() {
 	log.SetFlags(log.Lshortfile)
-
 	listen, err := net.Listen("tcp", "0.0.0.0:9999")
 	if err != nil {
 		log.Println("Listen() failed, err: ", err)
 		return
 	}
-	if _, err := os.Stat(ClusterConfPath); err !=nil{
+	if _, err := os.Stat(common.ClusterConfPath); err !=nil{
 		if os.IsNotExist(err) {
 			log.Println(err)
 			return
 		}
 	}
+
+	CurrentHostIP, err = common.GetHostIp()
+	if err != nil {
+		log.Println("get host ip err: ", err)
+		return
+	}
+	CurrentMasterIP = common.GetMasterIp(CurrentHostIP)
+	// 异常检测
+	go wait.Until(func() {
+		if CurrentMasterIP == CurrentHostIP {
+			masterStatusCheck()
+		}else {
+			workerStatusCheck()
+		}
+	}, time.Minute*5, nil)
+
 	for {
 		conn, err := listen.Accept() // 监听客户端的连接请求
 		if err != nil {
