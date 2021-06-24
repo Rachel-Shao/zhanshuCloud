@@ -10,7 +10,7 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
-	"../common"
+	"github.com/zhanshuCloud/common"
 	"time"
 )
 
