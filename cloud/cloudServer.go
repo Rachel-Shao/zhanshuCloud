@@ -392,6 +392,7 @@ func main() {
 	// 异常检测
 	go wait.Until(func() {
 		hostMasterIp = common.GetMasterIp(hostIp)
+		log.Printf("[sxy] %s hostMasterIp is %s", hostIp, hostMasterIp)
 		isMaster = hostMasterIp == hostIp
 		if isMaster == true {
 			masterStatusCheck()
