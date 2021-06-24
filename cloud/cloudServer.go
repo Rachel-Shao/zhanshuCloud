@@ -1,10 +1,9 @@
 package main
 
+
 import (
-	"../common"
 	"bufio"
 	"fmt"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"log"
 	"net"
 	"os"
@@ -12,7 +11,12 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"k8s.io/apimachinery/pkg/util/wait"
+
+	"../common"
 )
+
 
 
 var (
