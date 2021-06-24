@@ -239,8 +239,8 @@ func statusCheck() {
 	// If there is no stable connection, edgeNode will automatically switch clusters
 	if isMasterConnect == false && isNodeConnect == false {
 		// delete cluster info
-		fmt.Println("Executing Cmd: keadm reset -f")
-		cmd := exec.Command("sh", "-c", `keadm reset -f`)
+		fmt.Println("Executing Cmd: keadm reset --force")
+		cmd := exec.Command("sh", "-c", `keadm reset --force`)
 		cmdOutput, cmdErr := cmd.Output()
 		if cmdErr !=nil {
 			log.Println(cmdErr)
@@ -310,7 +310,7 @@ func main() {
 	go wait.Until(func() {
 		hostMasterIp = common.GetMasterIp(hostIp)
 		statusCheck()
-	}, time.Minute*5, nil)
+	}, time.Minute*1, nil)
 
 	for {
 		conn, err := listen.Accept() // 监听客户端的连接请求

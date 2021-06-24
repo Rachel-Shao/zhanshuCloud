@@ -91,9 +91,7 @@ func SetClusterInfo(clusterInfo map[string] []Cluster) error{
 
 func GetMasterIp(ip string) string {
 	clusterInfo := GetClusterInfo()
-	log.Printf("[sxy] get clusterinfo: %v", clusterInfo)
 	for _, cluster := range clusterInfo["Clusters"] {
-		log.Printf("cluster.master:%s", cluster.Master)
 		if cluster.Master == ip {
 			return ip
 		}

@@ -314,7 +314,7 @@ func workerStatusCheck() {
 	isMasterConnect := common.IsConnect(hostMasterIp)
 
 	// ping cluster nodes
-	nodeIp := common.GetNodeIp(hostIp)
+	nodeIp := common.GetNodeIp(hostMasterIp)
 	if nodeIp == nil {
 		log.Printf("failed to get nodeIP")
 		return
@@ -392,14 +392,13 @@ func main() {
 	// 异常检测
 	go wait.Until(func() {
 		hostMasterIp = common.GetMasterIp(hostIp)
-		log.Printf("[sxy] %s hostMasterIp is %s", hostIp, hostMasterIp)
 		isMaster = hostMasterIp == hostIp
 		if isMaster == true {
 			masterStatusCheck()
 		}else {
 			workerStatusCheck()
 		}
-	}, time.Minute*5, nil)
+	}, time.Minute*1, nil)
 
 	for {
 		conn, err := listen.Accept() // 监听客户端的连接请求
