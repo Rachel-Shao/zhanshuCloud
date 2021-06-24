@@ -94,8 +94,8 @@ func process(conn net.Conn) {
 			}else {
 				log.Println(strArray[1])
 				conn.Write([]byte("Start Joining Cluster")) // 发送数据
-				fmt.Println("Executing Cmd: kubeadm reset -f")
-				cmd := exec.Command("sh", "-c", `keadm reset --force`)
+				fmt.Println("Executing Cmd: kubeadm reset")
+				cmd := exec.Command("sh", "-c", `keadm reset`)
 				cmdOutput, cmdErr := cmd.Output()
 				fmt.Println(string(cmdOutput))
 				if cmdErr != nil {
@@ -239,8 +239,8 @@ func statusCheck() {
 	// If there is no stable connection, edgeNode will automatically switch clusters
 	if isMasterConnect == false && isNodeConnect == false {
 		// delete cluster info
-		fmt.Println("Executing Cmd: keadm reset --force")
-		cmd := exec.Command("sh", "-c", `keadm reset --force`)
+		fmt.Println("Executing Cmd: keadm reset")
+		cmd := exec.Command("sh", "-c", `keadm reset`)
 		cmdOutput, cmdErr := cmd.Output()
 		if cmdErr !=nil {
 			log.Println(cmdErr)
