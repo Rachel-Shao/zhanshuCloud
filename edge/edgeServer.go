@@ -243,6 +243,7 @@ func statusCheck() {
 		cmd := exec.Command("sh", "-c", `keadm reset`)
 		cmdOutput, cmdErr := cmd.Output()
 		if cmdErr !=nil {
+			log.Println(string(cmdOutput))
 			log.Println(cmdErr)
 			return
 		}
