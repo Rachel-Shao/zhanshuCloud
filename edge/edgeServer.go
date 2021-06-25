@@ -11,7 +11,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-	"github.com/zhanshuCloud/common"
+	"../common"
 	"time"
 )
 
@@ -138,7 +138,7 @@ func process(conn net.Conn) {
 }
 
 
-func getBestCluster(info map[string][]common.Cluster) *common.Cluster {
+func getBestCluster(info map[string][]common.Cluster) common.Cluster {
 	maxSignal := 0
 	bestCluster := common.Cluster{}
 	for _, cluster := range info["Clusters"] {
@@ -149,9 +149,9 @@ func getBestCluster(info map[string][]common.Cluster) *common.Cluster {
 		}
 	}
 	if bestCluster.Master == "" {
-		return nil
+		return common.Cluster{}
 	}
-	return &bestCluster
+	return bestCluster
 }
 
 
@@ -178,7 +178,7 @@ func joinRequest(targetIp string) string{
 	return  recvStr
 }
 
-func reJoin(cluster *common.Cluster) error {
+func reJoin(cluster common.Cluster) error {
 	// 发送join消息，接收token
 	requestStr := joinRequest(cluster.Master) // only token
 	strArray := strings.Fields(requestStr)
@@ -240,15 +240,16 @@ func statusCheck() {
 	// If there is no stable connection, edgeNode will automatically switch clusters
 	if isMasterConnect == false && isNodeConnect == false {
 		// delete cluster info
-		fmt.Println("Executing Cmd: keadm reset")
+		fmt.Println("Executing Cmd: keadm reset --force")
 		cmd := exec.Command("sh", "-c", `/etc/cluster/keadm reset --force`)
 		cmdOutput, cmdErr := cmd.Output()
 		if cmdErr !=nil {
-			log.Println(string(cmdOutput))
 			log.Println(cmdErr)
 			return
 		}
 		fmt.Println(string(cmdOutput))
+
+		/*
 		// send update cluster info
 		clusterInfo := common.GetClusterInfo()
 		var newCluster common.Cluster
@@ -268,13 +269,16 @@ func statusCheck() {
 			log.Printf("send UpdateCluster info failed: %v\n", err)
 		}
 
+		 */
+
 
 		// choose cluster to join
 		bestCluster := getBestCluster(clusterInfo)
-		if bestCluster == nil {
+		if bestCluster.Master == ""{
 			log.Println("No cluster available, keep state")
 			return
 		}
+		log.Printf("get current bestCluster.Master: %s, starting join\n", bestCluster.Master)
 		err := reJoin(bestCluster)
 		var maxRetryTimes = 3
 		for i := 1; err != nil; i++ {
