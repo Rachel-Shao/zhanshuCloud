@@ -185,7 +185,7 @@ func reJoin(cluster common.Cluster) error {
 	if strArray[0] == "Failed" {
 		return errors.New("failed to get ke join token")
 	}else {
-		joinCmd := "/etc/cluster/keadm join --kubeedge-version=1.5.0 --cloudcore-ipport=" + cluster.Master + " --token=" + requestStr
+		joinCmd := "/etc/cluster/keadm join --kubeedge-version=1.5.0 --cloudcore-ipport=" + cluster.Master + ":10000 --token=" + requestStr
 		cmd := exec.Command("sh", "-c", joinCmd)
 		if cmdOutput, err := cmd.Output(); err != nil {
 			return err
@@ -239,7 +239,7 @@ func statusCheck() {
 	if isMasterConnect == false && isNodeConnect == false {
 		// delete cluster info
 		fmt.Println("Executing Cmd: keadm reset --force")
-		cmd := exec.Command("sh", "-c", `/etc/cluster/keadm reset --force`)
+		cmd := exec.Command("sh", "-c", `/etc/cluster/keadm reset --force && rm -rf /etc/kubeedge/ca &&  rm -rf /etc/kubeedge/certs`)
 		cmdOutput, cmdErr := cmd.Output()
 		if cmdErr !=nil {
 			log.Println(cmdErr)
