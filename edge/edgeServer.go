@@ -92,10 +92,10 @@ func process(conn net.Conn) {
 				conn.Write([]byte("Request Joining Cluster:" + recvArray[1] + " Error:" + requestStr)) // 发送数据
 				log.Printf("Request Joioning Cluster:%v Error:%v", recvArray[1], requestStr)
 			}else {
-				log.Println(strArray[1])
+				log.Println(strArray[0])
 				conn.Write([]byte("Start Joining Cluster")) // 发送数据
-				fmt.Println("Executing Cmd: kubeadm reset")
-				cmd := exec.Command("sh", "-c", `keadm reset`)
+				fmt.Println("Executing Cmd: keadm reset --force")
+				cmd := exec.Command("sh", "-c", `keadm reset --force`)
 				cmdOutput, cmdErr := cmd.Output()
 				fmt.Println(string(cmdOutput))
 				if cmdErr != nil {
@@ -185,7 +185,7 @@ func reJoin(cluster common.Cluster) error {
 	if strArray[0] == "Failed" {
 		return errors.New("failed to get ke join token")
 	}else {
-		joinCmd := "/etc/cluster/keadm join --kubeedge-version=1.5.0 --cloudcore-ipport=" + cluster.Master + ":10000 --token=" + requestStr
+		joinCmd := fmt.Sprintf("keadm join --tarballpath=/etc/kubeedge --kubeedge-version=1.5.0 --cloudcore-ipport=%s:10000 -t %s", cluster.Master, requestStr)
 		cmd := exec.Command("sh", "-c", joinCmd)
 		if cmdOutput, err := cmd.Output(); err != nil {
 			return err

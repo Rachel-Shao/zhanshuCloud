@@ -142,8 +142,8 @@ func process(conn net.Conn) {
 						}
 					}
 				}
-				fmt.Println("Executing Cmd: keadm reset")
-				cmd = exec.Command("sh", "-c", `keadm reset`)
+				fmt.Println("Executing Cmd: keadm reset --force")
+				cmd = exec.Command("sh", "-c", `keadm reset --force`)
 				cmdOutput, cmdErr := cmd.Output()
 				fmt.Println(string(cmdOutput))
 				if cmdErr != nil {
