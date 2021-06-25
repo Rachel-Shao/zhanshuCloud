@@ -346,7 +346,7 @@ func workerStatusCheck() {
 			fmt.Println(string(cmdOutput))
 			// kubeadm init
 			fmt.Println("Executing Cmd: kubeadm init")
-			cmd = exec.Command("sh", "-c", "sh /etc/cluster/init_master.sh")
+			cmd = exec.Command("sh", "-c", `sh /etc/cluster/init_master.sh`)
 			cmdOutput, cmdErr = cmd.Output()
 			if  cmdErr !=nil {
 				log.Println(cmdErr)
