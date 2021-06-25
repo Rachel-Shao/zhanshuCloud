@@ -95,7 +95,7 @@ func process(conn net.Conn) {
 				log.Println(strArray[0])
 				conn.Write([]byte("Start Joining Cluster")) // 发送数据
 				fmt.Println("Executing Cmd: keadm reset --force")
-				cmd := exec.Command("sh", "-c", `keadm reset --force`)
+				cmd := exec.Command("sh", "-c", `keadm reset --force && rm -rf /etc/kubeedge/ca &&  rm -rf /etc/kubeedge/certs`)
 				cmdOutput, cmdErr := cmd.Output()
 				fmt.Println(string(cmdOutput))
 				if cmdErr != nil {
