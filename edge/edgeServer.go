@@ -185,10 +185,8 @@ func reJoin(cluster common.Cluster) error {
 	if strArray[0] == "Failed" {
 		return errors.New("failed to get ke join token")
 	}else {
-		cmd := exec.Command("sh", "/etc/cluster/keadm join ",
-			"--cloudcore-ipport", cluster.Master,
-			"--token", requestStr,
-			"--kubeedge-version", "1.5.0")
+		joinCmd := "/etc/cluster/keadm join --kubeedge-version=1.5.0 --cloudcore-ipport=" + cluster.Master + " --token=" + requestStr
+		cmd := exec.Command("sh", "-c", joinCmd)
 		if cmdOutput, err := cmd.Output(); err != nil {
 			return err
 		}else {
@@ -285,7 +283,7 @@ func statusCheck() {
 		for i := 1; err != nil; i++ {
 			log.Printf("failed to rejoin the new cluster: %v\n", err)
 			if i == maxRetryTimes {
-				log.Println("failed to rejoin the new cluster after #{i} times try")
+				log.Printf("failed to rejoin the new cluster after %v times try\n", maxRetryTimes)
 				break
 			}
 			err = reJoin(bestCluster)
