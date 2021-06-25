@@ -95,12 +95,14 @@ func process(conn net.Conn) {
 				log.Println(strArray[0])
 				conn.Write([]byte("Start Joining Cluster")) // 发送数据
 				fmt.Println("Executing Cmd: keadm reset --force")
-				cmd := exec.Command("sh", "-c", `keadm reset --force && rm -rf /etc/kubeedge/ca &&  rm -rf /etc/kubeedge/certs`)
+				cmd := exec.Command("sh", "-c", `keadm reset --force`)
 				cmdOutput, cmdErr := cmd.Output()
 				fmt.Println(string(cmdOutput))
 				if cmdErr != nil {
 					log.Println(cmdErr)
 				}
+				cmd = exec.Command("sh", "-c", `rm -rf /etc/kubeedge/ca &&  rm -rf /etc/kubeedge/certs`)
+				cmdOutput, cmdErr = cmd.Output()
 
 				fmt.Printf("Executing Cmd: keadm join --tarballpath=/etc/kubeedge --kubeedge-version=1.5.0 --cloudcore-ipport=%s:10000 -t %s",recvArray[1], requestStr)
 				joinCmd := fmt.Sprintf("keadm join --tarballpath=/etc/kubeedge --kubeedge-version=1.5.0 --cloudcore-ipport=%s:10000 -t %s",recvArray[1], requestStr)
@@ -239,14 +241,15 @@ func statusCheck() {
 	if isMasterConnect == false && isNodeConnect == false {
 		// delete cluster info
 		fmt.Println("Executing Cmd: keadm reset --force")
-		cmd := exec.Command("sh", "-c", `/etc/cluster/keadm reset --force && rm -rf /etc/kubeedge/ca &&  rm -rf /etc/kubeedge/certs`)
+		cmd := exec.Command("sh", "-c", `keadm reset --force`)
 		cmdOutput, cmdErr := cmd.Output()
 		if cmdErr !=nil {
 			log.Println(cmdErr)
 			return
 		}
 		fmt.Println(string(cmdOutput))
-
+		cmd = exec.Command("sh", "-c", `rm -rf /etc/kubeedge/ca &&  rm -rf /etc/kubeedge/certs`)
+		cmdOutput, cmdErr = cmd.Output()
 		/*
 		// send update cluster info
 		clusterInfo := common.GetClusterInfo()
