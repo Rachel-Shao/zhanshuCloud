@@ -11,7 +11,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-	"../common"
+	"github.com/zhanshuCloud/common"
 	"time"
 )
 
