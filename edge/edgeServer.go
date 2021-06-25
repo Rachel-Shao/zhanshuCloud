@@ -273,6 +273,7 @@ func statusCheck() {
 
 
 		// choose cluster to join
+		clusterInfo := common.GetClusterInfo()
 		bestCluster := getBestCluster(clusterInfo)
 		if bestCluster.Master == ""{
 			log.Println("No cluster available, keep state")
