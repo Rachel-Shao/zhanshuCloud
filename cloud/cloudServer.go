@@ -245,19 +245,25 @@ func sendDeleteAndJoinInfo(info map[string][]common.Cluster) error {
 				if node == hostIp {
 					continue
 				}
-				str = "DeleteCluster master " + hostMasterIp
+				/*
+				str = "DeleteCluster " + hostMasterIp
 				resp := common.SendInfo(node, str)
 				log.Println(resp)
 
+				 */
+
 				// send join request
-				str = "JoinCluster master" + hostIp
-				resp = common.SendInfo(node, str)
+				str = "JoinCluster " + hostIp
+				resp := common.SendInfo(node, str)
 				log.Println(resp)
 			}
 		}else{ // other cluster masters
-			str = "DeleteCluster master " + hostMasterIp
+			/*
+			str = "DeleteCluster " + hostMasterIp
 			resp := common.SendInfo(cluster.Master, str)
 			log.Println(resp)
+
+			 */
 		}
 	}
 	return nil
@@ -327,7 +333,7 @@ func workerStatusCheck() {
 	}else if isMasterConnect == false && isNodeConnect == true { // master failed
 		log.Printf("Suspected master %s failure, request manual verification, node %s apply to become a new master\n", hostMasterIp, hostIp)
 		// send application
-		reply := sendApplication()
+		reply := sendApplication() // 待输入还是运行
 		if reply == true {
 			// kubeadm reset
 			fmt.Println("Executing Cmd: kubeadm reset -f")
