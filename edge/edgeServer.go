@@ -185,9 +185,10 @@ func reJoin(cluster *common.Cluster) error {
 	if strArray[0] == "Failed" {
 		return errors.New("failed to get ke join token")
 	}else {
-		cmd := exec.Command("sh", "keadm join ",
+		cmd := exec.Command("sh", "/etc/cluster/keadm join ",
 			"--cloudcore-ipport", cluster.Master,
-			"--token", requestStr)
+			"--token", requestStr,
+			"--kubeedge-version", "1.5.0")
 		if cmdOutput, err := cmd.Output(); err != nil {
 			return err
 		}else {
