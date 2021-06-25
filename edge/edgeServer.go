@@ -240,7 +240,7 @@ func statusCheck() {
 	if isMasterConnect == false && isNodeConnect == false {
 		// delete cluster info
 		fmt.Println("Executing Cmd: keadm reset")
-		cmd := exec.Command("sh", "-c", `keadm reset`)
+		cmd := exec.Command("sh", "-c", `./etc/cluster/keadm reset`)
 		cmdOutput, cmdErr := cmd.Output()
 		if cmdErr !=nil {
 			log.Println(string(cmdOutput))
